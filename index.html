@@ -1,1 +1,285 @@
 
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Smart School Attendance System</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f3f6fc;color:#1e293b}
+header{background:#142d59;color:white;padding:22px 6%;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+header h1{font-size:22px;margin:0}
+header p{margin:7px 0 0;color:#cbd5e1;font-size:13px}
+.container{max-width:1150px;margin:28px auto;padding:0 18px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px}
+.card{background:white;padding:20px;border-radius:13px;box-shadow:0 4px 15px #1e293b0b;margin-bottom:20px}
+.stat-label{color:#64748b;font-size:14px}
+.stat-number{font-size:30px;font-weight:bold;margin-top:12px;color:#1d4ed8}
+.layout{display:grid;grid-template-columns:1fr 2fr;gap:20px;margin-top:22px}
+h2{font-size:18px;margin-top:0}
+input,select,button{font:inherit;padding:11px;border-radius:7px}
+input,select{width:100%;border:1px solid #cbd5e1;margin:7px 0 13px;background:white}
+button{border:0;background:#2563eb;color:white;cursor:pointer;font-weight:bold}
+button:hover{background:#1d4ed8}
+.btn-green{background:#15803d}
+.btn-red{background:#dc2626}
+.btn-gray{background:#64748b}
+.actions{display:flex;gap:6px;flex-wrap:wrap}
+.actions button{padding:7px;font-size:12px}
+table{width:100%;border-collapse:collapse;min-width:540px}
+th,td{text-align:left;padding:12px;border-bottom:1px solid #e2e8f0;font-size:13px}
+th{background:#f8fafc;color:#475569}
+.table-wrap{overflow-x:auto}
+.status{padding:5px 9px;border-radius:20px;font-size:12px;background:#dcfce7;color:#166534}
+.absent{background:#fee2e2;color:#991b1b}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:15px}
+.toolbar input{flex:1;min-width:150px;margin:0}
+footer{text-align:center;padding:20px;color:#64748b;font-size:12px}
+@media(max-width:750px){.layout{grid-template-columns:1fr}header h1{font-size:19px}}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>🎓 AI Smart School Attendance</h1>
+    <p>Student Management & Attendance Dashboard</p>
+  </div>
+  <div id="today"></div>
+</header>
+
+<main class="container">
+  <section class="stats">
+    <div class="card">
+      <div class="stat-label">Total Students</div>
+      <div class="stat-number" id="total">0</div>
+    </div>
+    <div class="card">
+      <div class="stat-label">Present Today</div>
+      <div class="stat-number" id="present">0</div>
+    </div>
+    <div class="card">
+      <div class="stat-label">Absent Today</div>
+      <div class="stat-number" id="absent">0</div>
+    </div>
+    <div class="card">
+      <div class="stat-label">Attendance Rate</div>
+      <div class="stat-number" id="rate">0%</div>
+    </div>
+  </section>
+
+  <section class="layout">
+    <div class="card">
+      <h2>➕ Register Student</h2>
+      <form id="studentForm">
+        <label for="studentId">Student ID</label>
+        <input id="studentId" placeholder="e.g. STU001" required>
+        <label for="studentName">Full Name</label>
+        <input id="studentName" placeholder="Student name" required>
+        <label for="studentClass">Class</label>
+        <select id="studentClass">
+          <option>Class 8</option>
+          <option>Class 9</option>
+          <option>Class 10</option>
+          <option>Class 11</option>
+          <option>Class 12</option>
+        </select>
+        <button type="submit">Add Student</button>
+      </form>
+      <hr style="border:0;border-top:1px solid #e2e8f0;margin:20px 0">
+      <h2>📅 Attendance Date</h2>
+      <input type="date" id="attendanceDate">
+      <button type="button" class="btn-gray" onclick="render()">Load Records</button>
+      <p style="font-size:12px;color:#64748b">
+        Attendance is saved on this device.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>👨‍🎓 Student Attendance</h2>
+      <div class="toolbar">
+        <input id="search" placeholder="Search name, ID or class..."
+               oninput="render()">
+        <button onclick="exportCSV()">Export CSV</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th><th>Name</th><th>Class</th>
+              <th>Status</th><th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="studentRows"></tbody>
+        </table>
+      </div>
+      <p id="empty" style="display:none;color:#64748b">
+        No students found. Register a student to get started.
+      </p>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>📋 Attendance History</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Date</th><th>Student ID</th><th>Name</th>
+          <th>Status</th><th>Time</th></tr>
+        </thead>
+        <tbody id="historyRows"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<footer>AI Smart School Attendance System · Student data stays in this browser</footer>
+
+<script>
+const $ = id => document.getElementById(id);
+const today = () => new Date().toLocaleDateString("en-CA");
+
+$("today").textContent = new Date().toLocaleDateString(undefined,{
+  weekday:"short",year:"numeric",month:"short",day:"numeric"
+});
+$("attendanceDate").value = today();
+
+let students = JSON.parse(localStorage.getItem("school_students") || "[]");
+let records = JSON.parse(localStorage.getItem("school_records") || "[]");
+
+function save(){
+  localStorage.setItem("school_students",JSON.stringify(students));
+  localStorage.setItem("school_records",JSON.stringify(records));
+}
+
+function getRecord(id,date){
+  return records.find(r=>r.id===id && r.date===date);
+}
+
+$("studentForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const id=$("studentId").value.trim();
+  const name=$("studentName").value.trim();
+  const cls=$("studentClass").value;
+
+  if(students.some(s=>s.id.toLowerCase()===id.toLowerCase())){
+    alert("This student ID already exists.");
+    return;
+  }
+
+  students.push({id,name,cls});
+  save();
+  e.target.reset();
+  render();
+});
+
+function mark(id,status){
+  const date=$("attendanceDate").value;
+  if(!date){alert("Please select a date.");return;}
+
+  const old=getRecord(id,date);
+  const time=new Date().toLocaleTimeString();
+
+  if(old){
+    old.status=status;
+    old.time=time;
+  }else{
+    records.push({id,date,status,time});
+  }
+
+  save();
+  render();
+}
+
+function removeStudent(id){
+  if(!confirm("Delete this student and their attendance history?"))return;
+  students=students.filter(s=>s.id!==id);
+  records=records.filter(r=>r.id!==id);
+  save();
+  render();
+}
+
+function render(){
+  const date=$("attendanceDate").value || today();
+  const q=$("search").value.toLowerCase();
+
+  const filtered=students.filter(s=>
+    [s.id,s.name,s.cls].some(v=>v.toLowerCase().includes(q))
+  );
+
+  $("studentRows").innerHTML=filtered.map(s=>{
+    const r=getRecord(s.id,date);
+    const status=r?r.status:"Not marked";
+    const badge=r?(r.status==="Present"?"status":"status absent"):"";
+    return `<tr>
+      <td>${escapeHTML(s.id)}</td>
+      <td>${escapeHTML(s.name)}</td>
+      <td>${escapeHTML(s.cls)}</td>
+      <td><span class="${badge}">${status}</span></td>
+      <td><div class="actions">
+        <button class="btn-green" onclick="mark('${encodeURIComponent(s.id)}'.replaceAll('%27', '%27'),'Present')">Present</button>
+        <button class="btn-red" onclick="mark('${encodeURIComponent(s.id)}','Absent')">Absent</button>
+        <button class="btn-gray" onclick="removeStudent('${encodeURIComponent(s.id)}')">Delete</button>
+      </div></td>
+    </tr>`;
+  }).join("");
+
+  // Decode encoded IDs before processing actions.
+  document.querySelectorAll("#studentRows button").forEach(btn=>{
+    const old=btn.getAttribute("onclick");
+    if(old && old.includes("encodeURIComponent")){
+      btn.setAttribute("onclick",old.replace(/encodeURIComponent\(s\.id\)/g,
+        "decodeURIComponent('$1')"));
+    }
+  });
+
+  $("empty").style.display=filtered.length?"none":"block";
+  const todays=students.map(s=>getRecord(s.id,date));
+  const p=todays.filter(r=>r&&r.status==="Present").length;
+  const a=todays.filter(r=>r&&r.status==="Absent").length;
+  $("total").textContent=students.length;
+  $("present").textContent=p;
+  $("absent").textContent=a;
+  $("rate").textContent=students.length?Math.round(p/students.length*100)+"%":"0%";
+
+  $("historyRows").innerHTML=records.slice().sort((a,b)=>
+    b.date.localeCompare(a.date)
+  ).map(r=>{
+    const s=students.find(s=>s.id===r.id);
+    return `<tr><td>${escapeHTML(r.date)}</td>
+      <td>${escapeHTML(r.id)}</td>
+      <td>${escapeHTML(s?s.name:"Deleted student")}</td>
+      <td>${escapeHTML(r.status)}</td>
+      <td>${escapeHTML(r.time)}</td></tr>`;
+  }).join("");
+}
+
+function escapeHTML(value){
+  return String(value).replace(/[&<>"']/g,c=>({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[c]));
+}
+
+function exportCSV(){
+  const rows=[["Date","Student ID","Name","Class","Status","Time"]];
+  records.forEach(r=>{
+    const s=students.find(s=>s.id===r.id);
+    rows.push([r.date,r.id,s?s.name:"Deleted student",
+      s?s.cls:"",r.status,r.time]);
+  });
+  const csv=rows.map(row=>row.map(v=>
+    '"'+String(v).replace(/"/g,'""')+'"'
+  ).join(",")).join("\n");
+  const url=URL.createObjectURL(new Blob(["\uFEFF"+csv],
+    {type:"text/csv;charset=utf-8;"}));
+  const a=document.createElement("a");
+  a.href=url;a.download="attendance-report.csv";a.click();
+  URL.revokeObjectURL(url);
+}
+
+$("attendanceDate").addEventListener("change",render);
+render();
+</script>
+</body>
+</html>
